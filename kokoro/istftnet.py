@@ -30,25 +30,67 @@ class AdaIN1d(nn.Module):
         gamma, beta = torch.chunk(h, chunks=2, dim=1)
         return (1 + gamma) * self.norm(x) + beta
 
+class CasualConv1d(nn.Conv1d):
+    def __init__(
+        self,
+        in_channels: int,
+        out_channels: int,
+        kernel_size,
+        stride = 1,
+        padding= 0,
+        dilation= 1,
+        groups: int = 1,
+        bias: bool = True,
+        padding_mode: str = "zeros",
+        device=None,
+        dtype=None
+     ):
+        super().__init__(
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            padding=padding,
+            dilation=dilation
+        )
+
+    def get_weight(self):
+        result = getattr(self, 'weight', None)
+        if result is not None:
+            return result
+        return getattr(self, 'weights', None)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        weight_quant_dequant = self.get_weight()
+        result = F.conv1d(
+            x,
+            weight_quant_dequant,
+            self.bias,
+            self.stride,
+            self.padding,
+            self.dilation,
+            self.groups,
+        )
+        return result
 
 class AdaINResBlock1(nn.Module):
     def __init__(self, channels, kernel_size=3, dilation=(1, 3, 5), style_dim=64):
         super(AdaINResBlock1, self).__init__()
         self.convs1 = nn.ModuleList([
-            weight_norm(nn.Conv1d(channels, channels, kernel_size, 1, dilation=dilation[0],
+            weight_norm(CasualConv1d(channels, channels, kernel_size, 1, dilation=dilation[0],
                                   padding=get_padding(kernel_size, dilation[0]))),
-            weight_norm(nn.Conv1d(channels, channels, kernel_size, 1, dilation=dilation[1],
+            weight_norm(CasualConv1d(channels, channels, kernel_size, 1, dilation=dilation[1],
                                   padding=get_padding(kernel_size, dilation[1]))),
-            weight_norm(nn.Conv1d(channels, channels, kernel_size, 1, dilation=dilation[2],
+            weight_norm(CasualConv1d(channels, channels, kernel_size, 1, dilation=dilation[2],
                                   padding=get_padding(kernel_size, dilation[2])))
         ])
         self.convs1.apply(init_weights)
         self.convs2 = nn.ModuleList([
-            weight_norm(nn.Conv1d(channels, channels, kernel_size, 1, dilation=1,
+            weight_norm(CasualConv1d(channels, channels, kernel_size, 1, dilation=1,
                                   padding=get_padding(kernel_size, 1))),
-            weight_norm(nn.Conv1d(channels, channels, kernel_size, 1, dilation=1,
+            weight_norm(CasualConv1d(channels, channels, kernel_size, 1, dilation=1,
                                   padding=get_padding(kernel_size, 1))),
-            weight_norm(nn.Conv1d(channels, channels, kernel_size, 1, dilation=1,
+            weight_norm(CasualConv1d(channels, channels, kernel_size, 1, dilation=1,
                                   padding=get_padding(kernel_size, 1)))
         ])
         self.convs2.apply(init_weights)
@@ -304,7 +346,7 @@ class Generator(nn.Module):
             har_spec, har_phase = self.stft.transform(har_source)
             har = torch.cat([har_spec, har_phase], dim=1)
         for i in range(self.num_upsamples):
-            x = F.leaky_relu(x, negative_slope=0.1) 
+            x = F.leaky_relu(x, negative_slope=0.1)
             x_source = self.noise_convs[i](har)
             x_source = self.noise_res[i](x_source, s)
             x = self.ups[i](x)
@@ -382,7 +424,7 @@ class AdainResBlk1d(nn.Module):
 
 
 class Decoder(nn.Module):
-    def __init__(self, dim_in, style_dim, dim_out, 
+    def __init__(self, dim_in, style_dim, dim_out,
                  resblock_kernel_sizes,
                  upsample_rates,
                  upsample_initial_channel,
@@ -400,8 +442,8 @@ class Decoder(nn.Module):
         self.F0_conv = weight_norm(nn.Conv1d(1, 1, kernel_size=3, stride=2, groups=1, padding=1))
         self.N_conv = weight_norm(nn.Conv1d(1, 1, kernel_size=3, stride=2, groups=1, padding=1))
         self.asr_res = nn.Sequential(weight_norm(nn.Conv1d(512, 64, kernel_size=1)))
-        self.generator = Generator(style_dim, resblock_kernel_sizes, upsample_rates, 
-                                   upsample_initial_channel, resblock_dilation_sizes, 
+        self.generator = Generator(style_dim, resblock_kernel_sizes, upsample_rates,
+                                   upsample_initial_channel, resblock_dilation_sizes,
                                    upsample_kernel_sizes, gen_istft_n_fft, gen_istft_hop_size, disable_complex=disable_complex)
 
     def forward(self, asr, F0_curve, N, s):

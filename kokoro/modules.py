@@ -1,5 +1,5 @@
 # https://github.com/yl4579/StyleTTS2/blob/main/models.py
-from .istftnet import AdainResBlk1d
+from .istftnet import AdainResBlk1d, CasualConv1d
 from torch.nn.utils import weight_norm
 from transformers import AlbertModel
 import numpy as np
@@ -103,8 +103,8 @@ class ProsodyPredictor(nn.Module):
         self.N.append(AdainResBlk1d(d_hid, d_hid, style_dim, dropout_p=dropout))
         self.N.append(AdainResBlk1d(d_hid, d_hid // 2, style_dim, upsample=True, dropout_p=dropout))
         self.N.append(AdainResBlk1d(d_hid // 2, d_hid // 2, style_dim, dropout_p=dropout))
-        self.F0_proj = nn.Conv1d(d_hid // 2, 1, 1, 1, 0)
-        self.N_proj = nn.Conv1d(d_hid // 2, 1, 1, 1, 0)
+        self.F0_proj = CasualConv1d(d_hid // 2, 1, 1, 1, 0)
+        self.N_proj = CasualConv1d(d_hid // 2, 1, 1, 1, 0)
 
     def forward(self, texts, style, text_lengths, alignment, m):
         d = self.text_encoder(texts, style, text_lengths, m)
