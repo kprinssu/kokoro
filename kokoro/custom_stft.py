@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from causal_conv1d import causal_conv1d_fn
 
 class CustomSTFT(nn.Module):
     """
@@ -11,7 +12,7 @@ class CustomSTFT(nn.Module):
     - forward STFT => Real-part conv1d + Imag-part conv1d
     - inverse STFT => Real-part conv_transpose1d + Imag-part conv_transpose1d + sum
     - avoids F.unfold, so easier to export to ONNX
-    - uses replicate or constant padding for 'center=True' to approximate 'reflect' 
+    - uses replicate or constant padding for 'center=True' to approximate 'reflect'
       (reflect is not supported for dynamic shapes in ONNX)
     """
 
@@ -75,8 +76,8 @@ class CustomSTFT(nn.Module):
 
         # Precompute inverse DFT
         # Real iFFT formula => scale = 1/n_fft, doubling for bins 1..freq_bins-2 if n_fft even, etc.
-        # For simplicity, we won't do the "DC/nyquist not doubled" approach here. 
-        # If you want perfect real iSTFT, you can add that logic. 
+        # For simplicity, we won't do the "DC/nyquist not doubled" approach here.
+        # If you want perfect real iSTFT, you can add that logic.
         # This version just yields good approximate reconstruction with Hann + typical overlap.
         inv_scale = 1.0 / self.n_fft
         n = np.arange(self.n_fft)
@@ -97,7 +98,7 @@ class CustomSTFT(nn.Module):
         self.register_buffer(
             "weight_backward_imag", torch.from_numpy(backward_imag).float().unsqueeze(1)
         )
-        
+
 
 
     def transform(self, waveform: torch.Tensor):
@@ -113,7 +114,7 @@ class CustomSTFT(nn.Module):
 
         x = waveform.unsqueeze(1)  # => (B, 1, T)
         # Convolution to get real part => shape (B, freq_bins, frames)
-        real_out = F.conv1d(
+        real_out = causal_conv1d(
             x,
             self.weight_forward_real,
             bias=None,
@@ -121,7 +122,7 @@ class CustomSTFT(nn.Module):
             padding=0,
         )
         # Imag part
-        imag_out = F.conv1d(
+        imag_out = causal_conv1d(
             x,
             self.weight_forward_imag,
             bias=None,

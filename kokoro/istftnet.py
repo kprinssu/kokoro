@@ -4,7 +4,8 @@ from torch.nn.utils import weight_norm
 import math
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+import torch.nn.functional as
+from causal_conv1d import causal_conv1d_fn
 
 
 # https://github.com/yl4579/StyleTTS2/blob/main/Modules/utils.py
@@ -62,7 +63,7 @@ class CasualConv1d(nn.Conv1d):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         weight_quant_dequant = self.get_weight()
-        result = F.conv1d(
+        result = causal_conv1d_fn(
             x,
             weight_quant_dequant,
             self.bias,
