@@ -4,7 +4,7 @@ from torch.nn.utils import weight_norm
 import math
 import torch
 import torch.nn as nn
-import torch.nn.functional as
+import torch.nn.functional as F
 from causal_conv1d import causal_conv1d_fn
 
 
@@ -29,7 +29,7 @@ class AdaIN1d(nn.Module):
         h = self.fc(s)
         h = h.view(h.size(0), h.size(1), 1)
         gamma, beta = torch.chunk(h, chunks=2, dim=1)
-        return (1 + gamma) * self.norm(x) + beta
+        return (1 + gamma) * self.norm(x) + betaCAUSAL_CONV1D_FORCE_BUILD
 
 class CasualConv1d(nn.Conv1d):
     def __init__(
