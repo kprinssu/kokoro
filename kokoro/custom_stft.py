@@ -114,7 +114,7 @@ class CustomSTFT(nn.Module):
 
         x = waveform.unsqueeze(1)  # => (B, 1, T)
         # Convolution to get real part => shape (B, freq_bins, frames)
-        real_out = causal_conv1d(
+        real_out = causal_conv1d_fn(
             x,
             self.weight_forward_real,
             bias=None,
@@ -122,7 +122,7 @@ class CustomSTFT(nn.Module):
             padding=0,
         )
         # Imag part
-        imag_out = causal_conv1d(
+        imag_out = causal_conv1d_fn(
             x,
             self.weight_forward_imag,
             bias=None,

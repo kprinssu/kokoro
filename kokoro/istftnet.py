@@ -5,7 +5,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from causal_conv1d import causal_conv1d_fn
+#from causal_conv1d import causal_conv1d_fn
 
 
 # https://github.com/yl4579/StyleTTS2/blob/main/Modules/utils.py
@@ -63,14 +63,14 @@ class CasualConv1d(nn.Conv1d):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         weight_quant_dequant = self.get_weight()
-        result = causal_conv1d_fn(
+        result = F.conv1d(
             x,
             weight_quant_dequant,
-            self.bias,
-            self.stride,
-            self.padding,
-            self.dilation,
-            self.groups,
+            bias=self.bias,
+            padding=self.padding,
+            stride=self.stride,
+            dilation=self.dilation,
+            groups=self.groups,
         )
         return result
 
